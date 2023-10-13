@@ -21,27 +21,37 @@ public class FilterTaskAuth extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
 
-        var authorization = request.getHeader("Authorization");
-        var authEncoded = authorization.substring("Basic".length()).trim();
-        byte[] authDecoded = Base64.getDecoder().decode(authEncoded);
-        var authString = new String(authDecoded);
+        var servletPath = request.getServletPath();
 
-        String[] credentials = authString.split(":");
-        String username = credentials[0];
-        String password = credentials[1];
+        if (servletPath.startsWith("/tasks")) {
+            var authorization = request.getHeader("Authorization");
 
-        var user = this.userRepository.findByUsername(username);
+            if (authorization.length() == 0) {
+                response.sendError(401, "Usuário sem autorização");
+            }
+            var authEncoded = authorization.substring("Basic".length()).trim();
+            byte[] authDecoded = Base64.getDecoder().decode(authEncoded);
+            var authString = new String(authDecoded);
 
-        if (user == null) {
-            response.sendError(401, "Usuário sem autorização");
+            String[] credentials = authString.split(":");
+            String username = credentials[0];
+            String password = credentials[1];
+
+            var user = this.userRepository.findByUsername(username);
+
+            if (user == null) {
+                response.sendError(401, "Usuário sem autorização");
+            } else {
+                var passwordVerified = BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
+                if (passwordVerified.verified) {
+                    request.setAttribute("idUser", user.getId());
+                    chain.doFilter(request, response);
+                } else {
+                    response.sendError(401, "Usuário sem autorização");
+                }
+            }
+        } else {
+            chain.doFilter(request, response);
         }
-
-        var passwordVerified = BCrypt.verifyer().verify(password.toCharArray(), user.getPassword());
-
-        if (!passwordVerified.verified) {
-            response.sendError(401, "Usuário sem autorização");
-        }
-
-        chain.doFilter(request, response);
     }
 }
