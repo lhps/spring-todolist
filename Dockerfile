@@ -1,7 +1,7 @@
 FROM alpine:latest AS build
 
 RUN apk update
-RUN apk add openjdk-17-jdk -y
+RUN apk add openjdk-17-jdk
 
 COPY . .
 
